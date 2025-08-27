@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-exchange-alt me-2"></i>Transfer Components</h1>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Transfer Components Between Boxes</h5>
+    </div>
+    <div class="card-body">
+        <form id="transferForm">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="fromBox" class="form-label">From Box</label>
+                    <select class="form-select" id="fromBox" required>
+                        <option value="">Select source box...</option>
+                        {% for box in boxes %}
+                        <option value="{{ box.id }}">{{ box.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="toBox" class="form-label">To Box</label>
+                    <select class="form-select" id="toBox" required>
+                        <option value="">Select destination box...</option>
+                        {% for box in boxes %}
+                        <option value="{{ box.id }}">{{ box.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="componentType" class="form-label">Component</label>
+                    <select class="form-select" id="componentType" required disabled>
+                        <option value="">Select component...</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="transferQuantity" class="form-label">Quantity</label>
+                    <input type="number" class="form-control" id="transferQuantity" min="1" value="1" required>
+                </div>
+                <div class="col-md-8 mb-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-exchange-alt me-2"></i>Transfer Components
+                    </button>
+                </div>
+            </div>
+            <div id="transferInfo" class="alert alert-info d-none">
+                <small id="transferInfoText"></small>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Source Box Contents</h6>
+            </div>
+            <div class="card-body">
+                <div id="sourceBoxContents">
+                    <p class="text-muted">Select a source box to view contents</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Destination Box Contents</h6>
+            </div>
+            <div class="card-body">
+                <div id="destBoxContents">
+                    <p class="text-muted">Select a destination box to view contents</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="messageArea"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fromBox = document.getElementById('fromBox');
+    const toBox = document.getElementById('toBox');
+    const componentType = document.getElementById('componentType');
+    const transferQuantity = document.getElementById('transferQuantity');
+    const transferInfo = document.getElementById('transferInfo');
+    const transferInfoText = document.getElementById('transferInfoText');
+
+    // Load box contents when boxes are selected
+    fromBox.addEventListener('change', function() {
+        if (this.value) {
+            loadBoxContents(this.value, 'sourceBoxContents');
+            loadComponentsForTransfer();
+        } else {
+            document.getElementById('sourceBoxContents').innerHTML = '<p class="text-muted">Select a source box to view contents</p>';
+            componentType.innerHTML = '<option value="">Select component...</option>';
+            componentType.disabled = true;
+        }
+    });
+
+    toBox.addEventListener('change', function() {
+        if (this.value) {
+            loadBoxContents(this.value, 'destBoxContents');
+        } else {
+            document.getElementById('destBoxContents').innerHTML = '<p class="text-muted">Select a destination box to view contents</p>';
+        }
+    });
+
+    componentType.addEventListener('change', function() {
+        updateTransferInfo();
+    });
+
+    function loadBoxContents(boxId, containerId) {
+        fetch(`/api/get_box_components/${boxId}`)
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById(containerId);
+                if (data.length === 0) {
+                    container.innerHTML = '<p class="text-muted">No components in this box</p>';
+                } else {
+                    let html = '';
+                    data.forEach(component => {
+                        html += `
+                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                                <span>${component.name}</span>
+                                <span class="badge bg-primary">${component.quantity}</span>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading box contents:', error);
+            });
+    }
+
+    function loadComponentsForTransfer() {
+        const fromBoxId = fromBox.value;
+        if (!fromBoxId) return;
+
+        fetch(`/api/get_box_components/${fromBoxId}`)
+            .then(response => response.json())
+            .then(data => {
+                componentType.innerHTML = '<option value="">Select component...</option>';
+                data.forEach(component => {
+                    componentType.innerHTML += `
+                        <option value="${component.id}" data-available="${component.quantity}">
+                            ${component.name} (Available: ${component.quantity})
+                        </option>
+                    `;
+                });
+                componentType.disabled = data.length === 0;
+            })
+            .catch(error => {
+                console.error('Error loading components:', error);
+            });
+    }
+
+    function updateTransferInfo() {
+        const option = componentType.options[componentType.selectedIndex];
+        if (option.value) {
+            const available = parseInt(option.dataset.available);
+            transferInfo.classList.remove('d-none');
+            transferInfoText.textContent = `Available for transfer: ${available}`;
+            transferQuantity.max = available;
+        } else {
+            transferInfo.classList.add('d-none');
+            transferQuantity.removeAttribute('max');
+        }
+    }
+
+    // Handle transfer form submission
+    document.getElementById('transferForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const fromBoxId = fromBox.value;
+        const toBoxId = toBox.value;
+        const componentTypeId = componentType.value;
+        const quantity = parseInt(transferQuantity.value);
+        
+        if (!fromBoxId || !toBoxId || !componentTypeId || !quantity) {
+            showMessage('Please fill in all fields.', 'danger');
+            return;
+        }
+        
+        if (fromBoxId === toBoxId) {
+            showMessage('Source and destination boxes must be different.', 'danger');
+            return;
+        }
+        
+        fetch('/api/transfer_component', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                from_box_id: parseInt(fromBoxId),
+                to_box_id: parseInt(toBoxId),
+                component_type_id: parseInt(componentTypeId),
+                quantity: quantity
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showMessage(data.message, 'success');
+                // Refresh the box contents
+                loadBoxContents(fromBoxId, 'sourceBoxContents');
+                loadBoxContents(toBoxId, 'destBoxContents');
+                loadComponentsForTransfer();
+                // Reset form
+                transferQuantity.value = 1;
+                componentType.value = '';
+                transferInfo.classList.add('d-none');
+            } else {
+                showMessage(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            showMessage('An error occurred: ' + error.message, 'danger');
+        });
+    });
+
+    function showMessage(message, type) {
+        const messageArea = document.getElementById('messageArea');
+        messageArea.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show mt-3" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+    }
+});
+</script>
+{% endblock %}

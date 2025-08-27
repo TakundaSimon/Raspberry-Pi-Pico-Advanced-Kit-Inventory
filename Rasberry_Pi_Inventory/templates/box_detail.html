@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-box me-2"></i>{{ box.name }}</h1>
+    <div>
+        <a href="{{ url_for('manage_inventory', box_id=box.id) }}" class="btn btn-success me-2">
+            <i class="fas fa-edit me-2"></i>Manage Inventory
+        </a>
+        <a href="{{ url_for('boxes') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Boxes
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-list me-2"></i>Components in this Box</h5>
+            </div>
+            <div class="card-body">
+                {% if components %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Component</th>
+                                    <th>Category</th>
+                                    <th>Quantity</th>
+                                    <th>Capacity</th>
+                                    <th>Last Updated</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for box_component, component_type in components %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ component_type.name }}</strong>
+                                        {% if component_type.description %}
+                                            <br><small class="text-muted">{{ component_type.description }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if component_type.category %}
+                                            <span class="badge bg-secondary">{{ component_type.category }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary fs-6">{{ box_component.quantity }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress me-2" style="width: 100px; height: 8px;">
+                                                {% set percentage = (box_component.quantity / component_type.max_per_box * 100) | round %}
+                                                <div class="progress-bar 
+                                                    {% if percentage >= 90 %}bg-danger
+                                                    {% elif percentage >= 70 %}bg-warning
+                                                    {% else %}bg-success{% endif %}" 
+                                                    style="width: {{ percentage }}%"></div>
+                                            </div>
+                                            <small class="text-muted">{{ box_component.quantity }}/{{ component_type.max_per_box }}</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ box_component.last_updated.strftime('%Y-%m-%d %H:%M') }}
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                        <h4 class="text-muted">No components in this box</h4>
+                        <p class="text-muted">Start adding components to track your inventory.</p>
+                        <a href="{{ url_for('manage_inventory', box_id=box.id) }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Add Components
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Box Information</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-5">Name:</dt>
+                    <dd class="col-sm-7">{{ box.name }}</dd>
+                    
+                    <dt class="col-sm-5">Description:</dt>
+                    <dd class="col-sm-7">{{ box.description or 'No description' }}</dd>
+                    
+                    <dt class="col-sm-5">Created:</dt>
+                    <dd class="col-sm-7">{{ box.created_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+                    
+                    <dt class="col-sm-5">Component Types:</dt>
+                    <dd class="col-sm-7">{{ components|length }}</dd>
+                    
+                    <dt class="col-sm-5">Total Items:</dt>
+                    <dd class="col-sm-7">
+                        {% set total_items = components | sum(attribute='0.quantity') %}
+                        {{ total_items }}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Capacity Overview</h6>
+            </div>
+            <div class="card-body">
+                {% if components %}
+                    {% for box_component, component_type in components %}
+                        {% set percentage = (box_component.quantity / component_type.max_per_box * 100) | round %}
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <small>{{ component_type.name }}</small>
+                                <small>{{ percentage }}%</small>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar 
+                                    {% if percentage >= 90 %}bg-danger
+                                    {% elif percentage >= 70 %}bg-warning
+                                    {% else %}bg-success{% endif %}" 
+                                    style="width: {{ percentage }}%"></div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center">No components to display</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

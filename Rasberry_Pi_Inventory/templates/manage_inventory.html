@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-edit me-2"></i>Manage Inventory: {{ box.name }}</h1>
+    <a href="{{ url_for('view_box', box_id=box.id) }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i>Back to Box
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-plus me-2"></i>Add Components</h5>
+            </div>
+            <div class="card-body">
+                <form id="addComponentForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="componentSelect" class="form-label">Component Type</label>
+                            <select class="form-select" id="componentSelect" required>
+                                <option value="">Select a component...</option>
+                                {% for component_type in component_types %}
+                                <option value="{{ component_type.id }}" 
+                                        data-max="{{ component_type.max_per_box }}"
+                                        data-current="{{ current_components.get(component_type.id, 0) }}">
+                                    {{ component_type.name }} (Max: {{ component_type.max_per_box }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="quantityInput" class="form-label">Quantity</label>
+                            <input type="number" class="form-control" id="quantityInput" min="1" value="1" required>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="fas fa-plus me-1"></i>Add
+                            </button>
+                        </div>
+                    </div>
+                    <div id="capacityInfo" class="alert alert-info d-none">
+                        <small id="capacityText"></small>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-minus me-2"></i>Remove Components</h5>
+            </div>
+            <div class="card-body">
+                <form id="removeComponentForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="removeComponentSelect" class="form-label">Component Type</label>
+                            <select class="form-select" id="removeComponentSelect" required>
+                                <option value="">Select a component...</option>
+                                {% for component in box.components %}
+                                <option value="{{ component.component_type.id }}" data-available="{{ component.quantity }}">
+                                    {{ component.component_type.name }} (Available: {{ component.quantity }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="removeQuantityInput" class="form-label">Quantity</label>
+                            <input type="number" class="form-control" id="removeQuantityInput" min="1" value="1" required>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-danger w-100">
+                                <i class="fas fa-minus me-1"></i>Remove
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-list me-2"></i>Current Inventory</h5>
+            </div>
+            <div class="card-body">
+                {% if box.components %}
+                    <div id="currentInventory">
+                        {% for component in box.components %}
+                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                            <div>
+                                <strong>{{ component.component_type.name }}</strong>
+                                <br>
+                                <small class="text-muted">{{ component.component_type.category }}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-primary">{{ component.quantity }}</span>
+                                <br>
+                                <small class="text-muted">/ {{ component.component_type.max_per_box }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center">No components in this box yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="messageArea"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const componentSelect = document.getElementById('componentSelect');
+    const quantityInput = document.getElementById('quantityInput');
+    const capacityInfo = document.getElementById('capacityInfo');
+    const capacityText = document.getElementById('capacityText');
+    
+    // Update capacity info when component is selected
+    componentSelect.addEventListener('change', function() {
+        const option = this.options[this.selectedIndex];
+        if (option.value) {
+            const max = parseInt(option.dataset.max);
+            const current = parseInt(option.dataset.current);
+            const available = max - current;
+            
+            capacityInfo.classList.remove('d-none');
+            capacityText.textContent = `Current: ${current}, Maximum: ${max}, Available space: ${available}`;
+            quantityInput.max = available;
+            
+            if (available <= 0) {
+                capacityInfo.className = 'alert alert-warning';
+                capacityText.textContent = 'This component is at maximum capacity in this box.';
+                quantityInput.disabled = true;
+            } else {
+                capacityInfo.className = 'alert alert-info';
+                quantityInput.disabled = false;
+            }
+        } else {
+            capacityInfo.classList.add('d-none');
+            quantityInput.disabled = false;
+            quantityInput.removeAttribute('max');
+        }
+    });
+
+    // Handle add component form
+    document.getElementById('addComponentForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const componentId = componentSelect.value;
+        const quantity = parseInt(quantityInput.value);
+        
+        if (!componentId || !quantity) {
+            showMessage('Please select a component and enter a quantity.', 'danger');
+            return;
+        }
+        
+        fetch('/api/add_component', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                box_id: {{ box.id }},
+                component_type_id: parseInt(componentId),
+                quantity: quantity
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showMessage(data.message, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showMessage(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            showMessage('An error occurred: ' + error.message, 'danger');
+        });
+    });
+
+    // Handle remove component form
+    document.getElementById('removeComponentForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const componentId = document.getElementById('removeComponentSelect').value;
+        const quantity = parseInt(document.getElementById('removeQuantityInput').value);
+        
+        if (!componentId || !quantity) {
+            showMessage('Please select a component and enter a quantity.', 'danger');
+            return;
+        }
+        
+        fetch('/api/remove_component', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                box_id: {{ box.id }},
+                component_type_id: parseInt(componentId),
+                quantity: quantity
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showMessage(data.message, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showMessage(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            showMessage('An error occurred: ' + error.message, 'danger');
+        });
+    });
+
+    function showMessage(message, type) {
+        const messageArea = document.getElementById('messageArea');
+        messageArea.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show mt-3" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+    }
+});
+</script>
+{% endblock %}
