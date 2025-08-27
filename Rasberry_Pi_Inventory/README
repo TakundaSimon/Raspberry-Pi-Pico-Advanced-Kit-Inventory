@@ -1,0 +1,237 @@
+# Raspberry Pi Toolkit Inventory Management System
+
+A comprehensive Flask-based web application for managing electronic component inventories across multiple storage boxes, specifically designed for Raspberry Pi and maker toolkit organization.
+
+## 🎯 Overview
+
+This system provides a robust solution for tracking electronic components across multiple storage containers with strict capacity management, atomic transfers, and persistent data storage. Built following the requirements in `must.ts`, it ensures complete separation between storage boxes while maintaining data integrity.
+
+## 📋 Features
+
+### Core Functionality
+- **Box-Centric Organization**: Each component must belong to a specific storage box
+- **Capacity Enforcement**: Automatic validation prevents exceeding defined maximum quantities
+- **Atomic Transfers**: Secure two-step process for moving components between boxes
+- **Persistent Storage**: SQLite database maintains inventory state between sessions
+- **Search & Filter**: Find components across all boxes with advanced filtering
+- **Web Interface**: Responsive Bootstrap-powered UI for easy management
+
+### Component Management
+- Add/remove components with automatic capacity validation
+- Pre-loaded with realistic Raspberry Pi Pico Advanced Kit components
+- Support for custom component types and categories
+- Bulk operations for efficient inventory management
+
+### Data Integrity
+- Strict validation prevents component mixing between boxes
+- Rollback protection for failed transfers
+- Comprehensive error handling and user feedback
+- Database constraints ensure data consistency
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Python 3.7 or higher
+- pip (Python package installer)
+
+### Installation
+
+1. **Clone or download the project files**
+
+2. **Install dependencies**
+   \`\`\`bash
+   pip install -r requirements.txt
+   \`\`\`
+
+3. **Run the application**
+   \`\`\`bash
+   python app.py
+   \`\`\`
+
+4. **Initialize sample data (optional)**
+   \`\`\`bash
+   python scripts/init_sample_data.py
+   \`\`\`
+
+5. **Access the web interface**
+   Open your browser and navigate to: `http://localhost:5000`
+
+## 📁 Project Structure
+
+\`\`\`
+raspberry-pi-inventory/
+├── app.py                          # Main Flask application
+├── requirements.txt                # Python dependencies
+├── inventory.db                    # SQLite database (auto-created)
+├── README.md                       # This file
+├── scripts/
+│   └── init_sample_data.py        # Sample data initialization
+└── templates/
+    ├── base.html                   # Base template with navigation
+    ├── index.html                  # Dashboard/home page
+    ├── boxes.html                  # Box listing page
+    ├── box_detail.html            # Individual box details
+    ├── components.html            # Component type management
+    ├── manage_inventory.html      # Add/remove components
+    ├── transfer.html              # Component transfer interface
+    ├── add_box.html              # Create new storage box
+    └── add_component_type.html   # Create new component type
+\`\`\`
+
+## 🗄️ Database Schema
+
+### Tables
+
+**boxes**
+- `id`: Primary key
+- `name`: Box identifier (unique)
+- `description`: Optional box description
+- `created_at`: Timestamp
+
+**component_types**
+- `id`: Primary key
+- `name`: Component name (unique)
+- `category`: Component category
+- `max_per_box`: Maximum allowed quantity per box
+- `created_at`: Timestamp
+
+**box_components**
+- `id`: Primary key
+- `box_id`: Foreign key to boxes
+- `component_type_id`: Foreign key to component_types
+- `quantity`: Current quantity in box
+- `created_at`: Timestamp
+- **Unique constraint**: (box_id, component_type_id)
+
+## 🔧 API Endpoints
+
+### Web Routes
+- `GET /` - Dashboard with overview
+- `GET /boxes` - List all storage boxes
+- `GET /boxes/<id>` - View specific box details
+- `GET /components` - Manage component types
+- `GET /manage-inventory` - Add/remove components interface
+- `GET /transfer` - Component transfer interface
+
+### API Routes
+- `POST /api/add-component` - Add components to a box
+- `POST /api/remove-component` - Remove components from a box
+- `POST /api/transfer-component` - Transfer components between boxes
+- `POST /api/add-box` - Create new storage box
+- `POST /api/add-component-type` - Create new component type
+- `GET /api/search` - Search components across all boxes
+
+## 📦 Sample Data
+
+The system includes comprehensive sample data representing a typical Raspberry Pi Pico Advanced Kit:
+
+### Component Categories
+- **Controllers**: Raspberry Pi Pico, IR modules, joystick modules
+- **Sensors**: PIR motion, ultrasonic distance, temperature, light sensors
+- **Electronics**: LEDs, resistors, buttons, buzzers, potentiometers
+- **Motors & Actuators**: Servo motors, DC motors, stepper motors
+- **Display**: LCD displays, OLED screens, 7-segment displays
+- **Hardware**: Breadboards, jumper wires, screws, magnets
+
+### Default Storage Boxes
+- **Main Toolkit**: Primary storage for most components
+- **Sensors Box**: Specialized storage for sensor modules
+- **Hardware Box**: Mechanical components and accessories
+
+## 💡 Usage Examples
+
+### Adding Components
+1. Navigate to "Manage Inventory"
+2. Select target box and component type
+3. Enter quantity (system validates against capacity limits)
+4. Click "Add Component"
+
+### Transferring Components
+1. Go to "Transfer Components"
+2. Select source box, component type, and quantity
+3. Choose destination box
+4. Confirm transfer (atomic operation with rollback protection)
+
+### Searching Inventory
+1. Use the search bar on any page
+2. Enter component name or partial match
+3. View results across all boxes with quantities
+
+### Creating Custom Components
+1. Navigate to "Components" page
+2. Click "Add New Component Type"
+3. Define name, category, and maximum capacity per box
+4. Save to make available for inventory management
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+**Database not found**
+- The SQLite database is created automatically on first run
+- Ensure write permissions in the application directory
+
+**Port already in use**
+- Change the port in `app.py`: `app.run(debug=True, port=5001)`
+- Or stop other applications using port 5000
+
+**Sample data not loading**
+- Run the sample data script after starting the application once
+- Check for error messages in the console output
+
+**Components not appearing**
+- Verify the component type exists in the "Components" section
+- Check that the target box has available capacity
+
+### Error Messages
+
+**"Insufficient capacity"**
+- The box has reached maximum capacity for this component type
+- Either remove some components or transfer to another box
+
+**"Component not found in box"**
+- Attempting to remove more components than available
+- Check current inventory levels before removal
+
+**"Transfer failed"**
+- Network interruption or validation error during transfer
+- Operation is rolled back automatically - retry if needed
+
+## 🛠️ Development
+
+### Running in Development Mode
+\`\`\`bash
+export FLASK_ENV=development
+python app.py
+\`\`\`
+
+### Database Reset
+To reset the database and start fresh:
+\`\`\`bash
+rm inventory.db
+python app.py  # Creates new empty database
+python scripts/init_sample_data.py  # Repopulate with sample data
+\`\`\`
+
+### Adding New Features
+The application follows standard Flask patterns:
+- Add routes to `app.py`
+- Create corresponding HTML templates
+- Update navigation in `base.html`
+- Add any new dependencies to `requirements.txt`
+
+## 📄 License
+
+This project is created for educational and personal use in managing electronic component inventories.
+
+## 🤝 Contributing
+
+This is a specialized inventory management system. For modifications:
+1. Follow the existing code structure
+2. Maintain database integrity constraints
+3. Test capacity validation thoroughly
+4. Update this README for any new features
+
+---
+
+**Built with Flask, SQLAlchemy, and Bootstrap for reliable inventory management.**
